@@ -1,0 +1,101 @@
+import zipfile
+import os
+from pathlib import Path
+import shutil
+
+#НАСТРОЙКИ
+zip_path = "C:\\Users\\Алексей\\Desktop\\PavementDamagesG-7.zip" #Путь к файлу
+extract_to = "PavementDamagesG-7"
+
+# Создаём удобную структуру
+base_dir = Path(extract_to)
+images_dir = base_dir / "images"
+masks_dir = base_dir / "masks"
+left_dir = images_dir / "left"
+right_dir = images_dir / "right"
+
+# Создаём папки
+for dir_path in [base_dir, images_dir, masks_dir, left_dir, right_dir]:
+    dir_path.mkdir(parents=True, exist_ok=True)
+
+print("Начинаем распаковку датасета...")
+
+#РАСПАКОВКА
+with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    zip_ref.extractall(base_dir)
+    print(f"Датасет успешно распакован в папку: {base_dir}")
+
+#АНАЛИЗ И ОРГАНИЗАЦИЯ
+print("\nАнализируем структуру файлов...")
+
+# Собираем все jpg и png
+all_files = list(base_dir.rglob("*.*"))
+
+left_files = []
+right_files = []
+mask_files = []
+other_files = []
+
+for file in all_files:
+    if file.suffix.lower() == '.jpg':
+        if 'left' in file.name.lower() or '_L' in file.name.upper():
+            left_files.append(file)
+        elif 'right' in file.name.lower() or '_R' in file.name.upper():
+            right_files.append(file)
+        else:
+            if file.name.lower().endswith(('l.jpg', 'left.jpg')):
+                left_files.append(file)
+            else:
+                right_files.append(file)   # по умолчанию считаем right
+    elif file.suffix.lower() == '.png':
+        mask_files.append(file)
+    else:
+        other_files.append(file)
+
+print(f"Найдено изображений: {len(left_files) + len(right_files)}")
+print(f"   • Left:  {len(left_files)}")
+print(f"   • Right: {len(right_files)}")
+print(f"Найдено масок: {len(mask_files)}")
+
+def safe_move(file, target_dir):
+    target = target_dir / file.name
+    if target.exists():
+        # Если файл уже существует — добавляем суффикс
+        counter = 1
+        stem = target.stem
+        while (target_dir / f"{stem}_{counter}{target.suffix}").exists():
+            counter += 1
+        target = target_dir / f"{stem}_{counter}{target.suffix}"
+    shutil.move(str(file), str(target))
+
+# Перемещаем изображения
+for f in left_files:
+    safe_move(f, left_dir)
+for f in right_files:
+    safe_move(f, right_dir)
+
+# Перемещаем маски
+for f in mask_files:
+    safe_move(f, masks_dir)
+
+#ИТОГОВАЯ СТРУКТУРА
+print("\n" + "="*60)
+print("✅ Датасет успешно организован!")
+print("="*60)
+print(f"""
+Структура папок:
+{base_dir}/
+├── images/
+│   ├── left/      ← {len(list(left_dir.glob('*.jpg')))} изображений
+│   └── right/     ← {len(list(right_dir.glob('*.jpg')))} изображений
+├── masks/         ← {len(list(masks_dir.glob('*.png')))} масок
+└── (оригинальные файлы, если остались)
+""")
+
+# Опционально: удалить пустые папки после перемещения
+for folder in base_dir.rglob("*"):
+    if folder.is_dir() and not any(folder.iterdir()):
+        try:
+            folder.rmdir()
+        except:
+            pass
