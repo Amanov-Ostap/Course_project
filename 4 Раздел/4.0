@@ -1,1 +1,42 @@
+import os
+import zipfile
 
+
+def unpack_pauq_zip(zip_path: str = None):
+    if zip_path is None:
+        default_name = "merged_database_2022-06-10.zip"
+        if os.path.exists(default_name):
+            zip_path = default_name
+        else:
+            zip_path = input(
+                "Введите полный путь к zip-файлу").strip()
+
+    if not os.path.exists(zip_path):
+        print(f"Файл не найден: {zip_path}")
+        print("Проверьте путь и название файла.")
+        return False
+
+    extract_folder = "pauq_databases"
+
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_folder)
+
+        print(f"   \nБазы данных находятся в папке: {os.path.abspath(extract_folder)}")
+        print(f"   Внутри вы увидите папки по доменам (college_2, flight_2 и т.д.)")
+
+        # Показываем структуру (первые 10 папок)
+        subfolders = [f for f in os.listdir(extract_folder) if os.path.isdir(os.path.join(extract_folder, f))]
+        print(f"\nНайдено доменов: {len(subfolders)}")
+        print("Первые 10 доменов:", subfolders[:10])
+
+        return True
+
+    except Exception as e:
+        print(f"Ошибка при распаковке: {e}")
+        return False
+
+
+if __name__ == "__main__":
+    print("Распаковка датасета PAUQ\n")
+    unpack_pauq_zip()
