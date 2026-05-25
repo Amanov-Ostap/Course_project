@@ -1,0 +1,81 @@
+import json
+import os
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from pymorphy3 import MorphAnalyzer
+
+morph = MorphAnalyzer()
+
+def clean_text(text):
+    if not text:
+        return ""
+    text = str(text).lower()
+    text = re.sub(r'[^\w\s]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+def lemmatize_text(text):
+    if not text:
+        return ""
+    words = text.split()
+    return " ".join(morph.parse(w)[0].normal_form for w in words)
+
+def keep_only_russian(text):
+    words = text.split()
+    russian = [word for word in words if re.search(r'[а-яё]', word)]
+    return " ".join(russian)
+
+print("TF-IDF Векторизация\n")
+
+# Сбор и обработка текстов
+texts = []
+for filename in ["pauq_train.json", "pauq_dev.json"]:
+    if os.path.exists(filename):
+        with open(filename, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        for item in data:
+            q = item.get('question')
+            if q:
+                cleaned = clean_text(q)
+                lemmatized = lemmatize_text(cleaned)
+                russian_only = keep_only_russian(lemmatized)
+                if russian_only:  # если после фильтрации осталось хоть что-то
+                    texts.append(russian_only)
+
+print(f"Всего текстов для векторизации: {len(texts)}")
+
+# TF-IDF векторизация только русских слов
+vectorizer = TfidfVectorizer(
+    max_df=0.85,
+    min_df=5,
+    ngram_range=(1, 1)
+)
+
+tfidf_matrix = vectorizer.fit_transform(texts)
+
+print(f"\nРазмер словаря: {len(vectorizer.vocabulary_)}")
+print(f"Размер TF-IDF матрицы: {tfidf_matrix.shape}")
+
+
+example_idx = 0
+example_text = texts[example_idx]
+example_vector = tfidf_matrix[example_idx]
+
+print("\n")
+print("Пример вектора для первого текста (только русские слова):")
+
+print(f"Текст:\n{example_text}\n")
+
+# Ненулевые значения
+non_zero = example_vector.nonzero()
+features = [(vectorizer.get_feature_names_out()[i], example_vector[0, i])
+            for i in non_zero[1]]
+
+# Сортируем по весу
+features_sorted = sorted(features, key=lambda x: x[1], reverse=True)
+
+print("Слова с наибольшим TF-IDF весом:")
+for word, score in features_sorted[:10]:
+    print(f"{word:20} — {score:.4f}")
+
+print(f"\nВсего ненулевых элементов в векторе: {len(features)}")
