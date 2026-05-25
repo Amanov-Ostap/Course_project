@@ -1,0 +1,71 @@
+import json
+import os
+from pymorphy3 import MorphAnalyzer
+
+# Инициализация морфологического анализатора (один раз на весь скрипт)
+morph = MorphAnalyzer()
+
+
+def lemmatize_text(text: str) -> str:
+    if not isinstance(text, str) or not text.strip():
+        return ""
+
+    words = text.split()
+    # Для каждого слова берём нормальную форму
+    lemmatized_words = [morph.parse(word)[0].normal_form for word in words]
+    return " ".join(lemmatized_words)
+
+
+def process_json_file(json_path: str):
+    if not os.path.exists(json_path):
+        print(f"Файл не найден: {json_path}")
+        return None
+
+    print(f"Лемматизация: {os.path.basename(json_path)}")
+
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    examples = []  # Собираем 2 примера для демонстрации
+
+    for item in data:
+        if "cleaned_question" in item and isinstance(item.get("cleaned_question"), str):
+            cleaned = item["cleaned_question"]
+            lemmatized = lemmatize_text(cleaned)
+
+            # Добавляем новое поле
+            item["lemmatized_question"] = lemmatized
+
+            # Сохраняем первые 2 примера
+            if len(examples) < 2:
+                examples.append((cleaned, lemmatized))
+
+    # Сохраняем результат
+    lemmatized_path = f"lemmatized_{os.path.basename(json_path)}"
+    with open(lemmatized_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    print(f"Сохранён файл: {lemmatized_path}")
+    return examples
+
+
+if __name__ == "__main__":
+    print("=== Лемматизация вопросов PAUQ с pymorphy3 ===\n")
+
+    train_path = "cleaned_pauq_train.json"
+    dev_path = "cleaned_pauq_dev.json"
+
+    train_examples = process_json_file(train_path)
+    dev_examples = process_json_file(dev_path)
+
+    if train_examples is None or dev_examples is None:
+        print(
+            "\nНе все файлы найдены. Убедитесь, что cleaned_pauq_train.json и cleaned_pauq_dev.json лежат в текущей папке.")
+    else:
+        print("Пример 1 (из train):")
+        print(f"ДО:    {train_examples[0][0]}")
+        print(f"ПОСЛЕ: {train_examples[0][1]}")
+
+        print("Пример 2 (из dev):")
+        print(f"ДО:    {dev_examples[0][0]}")
+        print(f"ПОСЛЕ: {dev_examples[0][1]}")
