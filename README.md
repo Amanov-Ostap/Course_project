@@ -1,9 +1,10 @@
 # Курсовой проект
 
-Изображения 
-Тема № 72 
-Детекция износа и повреждения поверхности дорожного покрытия
-https://data.mendeley.com/datasets/yb65trwbd8/2
+1 Раздел\
+Табличные данные\
+Прогнозированние сердечно-сосудистых заболеваний\
+Ссылка на источник:\
+https://www.kaggle.com/datasets/aminasalamt/heart-disease-prediction-using-machine-learning/data\
 
 Аудио
 Тема № 67
