@@ -1,11 +1,11 @@
 # Курсовой проект
 
-1 Раздел\
+# 1 Раздел\
 Табличные данные\
 Прогнозированние сердечно-сосудистых заболеваний\
 Ссылка на источник:\
-https://www.kaggle.com/datasets/aminasalamt/heart-disease-prediction-using-machine-learning/data\
-
+https://www.kaggle.com/datasets/aminasalamt/heart-disease-prediction-using-machine-learning/data
+\
 Аудио
 Тема № 67
 Транскрибация и протоколирование контрольного мероприятия инспектором
