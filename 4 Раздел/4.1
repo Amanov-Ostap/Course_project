@@ -1,0 +1,68 @@
+import json
+import re
+import os
+import requests
+
+
+def clean_text(text: str) -> str:
+    if not isinstance(text, str) or not text.strip():
+        return ""
+
+    text = text.lower()  # нижний регистр
+    text = re.sub(r'[^\w\s]', '', text)  # удаляем все знаки препинания
+    text = re.sub(r'\s+', ' ', text)  # убираем лишние пробелы
+    return text.strip()
+
+
+def process_json_file(json_path: str):
+    """Обрабатывает один JSON-файл PAUQ"""
+    if not os.path.exists(json_path):
+        print(f"Файл не найден: {json_path}")
+        return None
+
+    print(f"Обрабатываем: {os.path.basename(json_path)}")
+
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    examples = []  # Для демонстрации "до / после"
+
+    for item in data:
+        if "question" in item and isinstance(item.get("question"), str):
+            original = item["question"]
+            cleaned = clean_text(original)
+            item["cleaned_question"] = cleaned
+
+            # Собираем 2 примера
+            if len(examples) < 2:
+                examples.append((original, cleaned))
+
+    # Сохраняем очищенную версию
+    cleaned_path = f"cleaned_{os.path.basename(json_path)}"
+    with open(cleaned_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    print(f"Сохранён очищенный файл: {cleaned_path}")
+    return examples
+
+
+if __name__ == "__main__":
+    print("Очистка текста в датасете PAUQ\n")
+
+    # Пути к файлам
+    train_path = "pauq_train.json"
+    dev_path = "pauq_dev.json"
+
+    # Запускаем очистку
+    train_examples = process_json_file(train_path)
+    dev_examples = process_json_file(dev_path)
+
+    if train_examples is None or dev_examples is None:
+        print("\nНе удалось обработать файлы.")
+    else:
+        print("Пример 1 (из train):")
+        print(f"ДО:    {train_examples[0][0]}")
+        print(f"ПОСЛЕ: {train_examples[0][1]}")
+        print("Пример 2 (из dev):")
+        print(f"ДО:    {dev_examples[0][0]}")
+        print(f"ПОСЛЕ: {dev_examples[0][1]}")
