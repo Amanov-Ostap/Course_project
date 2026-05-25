@@ -1,0 +1,89 @@
+import json
+import os
+import re
+from collections import Counter
+import matplotlib.pyplot as plt
+import seaborn as sns
+from pymorphy3 import MorphAnalyzer
+import nltk
+from nltk.corpus import stopwords
+
+nltk.download('stopwords', quiet=True)
+
+morph = MorphAnalyzer()
+russian_stopwords = set(stopwords.words('russian'))
+
+
+def clean_text(text):
+    if not text:
+        return ""
+    text = str(text).lower()
+    text = re.sub(r'[^\w\s]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+def lemmatize_text(text):
+    if not text:
+        return ""
+    words = text.split()
+    return " ".join(morph.parse(w)[0].normal_form for w in words)
+
+
+def remove_stopwords(text):
+    words = text.split()
+    filtered = [word for word in words if word not in russian_stopwords]
+    return " ".join(filtered)
+
+
+def keep_only_russian(text):
+    words = text.split()
+    russian_only = [word for word in words if re.search(r'[а-яё]', word)]
+    return " ".join(russian_only)
+
+
+print("Удаление стоп-слов\n")
+
+all_text = ""
+examples = []
+
+for filename in ["pauq_train.json", "pauq_dev.json"]:
+    if os.path.exists(filename):
+        with open(filename, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        for item in data:
+            q = item.get('question')
+            if q:
+                cleaned = clean_text(q)
+                lemmatized = lemmatize_text(cleaned)
+                without_stop = remove_stopwords(lemmatized)
+                russian_only = keep_only_russian(without_stop)
+
+                all_text += russian_only + " "
+
+                if len(examples) < 2:
+                    examples.append((keep_only_russian(lemmatized), russian_only))
+
+print("Примеры до и после удаления стоп-слов:\n")
+for i, (до, после) in enumerate(examples, 1):
+    print(f"Пример {i}:")
+    print(f"До:     {до}")
+    print(f"После:  {после}\n")
+
+
+russian_words = [word for word in all_text.split() if re.search(r'[а-яё]', word)]
+
+counter = Counter(russian_words)
+top10 = counter.most_common(10)
+words, counts = zip(*top10)
+
+# Столбчатый график
+plt.figure(figsize=(12, 7))
+sns.barplot(x=counts, y=words, palette="viridis")
+plt.title("Топ-10 самых популярных слов\nпосле удаления стоп-слов")
+plt.xlabel("Количество упоминаний")
+plt.ylabel("Слово")
+plt.grid(axis='x', linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
