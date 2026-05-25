@@ -1,0 +1,68 @@
+import json
+import os
+import re
+from collections import Counter
+import matplotlib.pyplot as plt
+import seaborn as sns
+from wordcloud import WordCloud
+from pymorphy3 import MorphAnalyzer
+
+morph = MorphAnalyzer()
+
+def clean_text(text):
+    if not text:
+        return ""
+    text = str(text).lower()
+    text = re.sub(r'[^\w\s]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+def lemmatize_text(text):
+    if not text:
+        return ""
+    words = text.split()
+    return " ".join(morph.parse(w)[0].normal_form for w in words)
+
+def is_russian_word(word):
+    return bool(re.search(r'[а-яё]', word))
+
+all_text = ""
+for filename in ["pauq_train.json", "pauq_dev.json"]:
+    if os.path.exists(filename):
+        with open(filename, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        for item in data:
+            q = item.get('question')
+            if q:
+                cleaned = clean_text(q)
+                lemmatized = lemmatize_text(cleaned)
+                all_text += lemmatized + " "
+
+# Оставляем только русские слова
+russian_words = [word for word in all_text.split() if is_russian_word(word)]
+
+counter = Counter(russian_words)
+top10 = counter.most_common(10)
+words, counts = zip(*top10)
+
+# Столбчатый график — 10 самых популярных русских слов
+plt.figure(figsize=(12, 7))
+sns.barplot(x=counts, y=words, palette="viridis")
+plt.title("Топ-10 самых популярных слов")
+plt.xlabel("Количество упоминаний")
+plt.ylabel("Слово")
+plt.grid(axis='x', linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
+
+# Облако слов из 10 самых популярных слов
+top10_dict = dict(top10)
+wordcloud = WordCloud(width=1400, height=800, background_color='white',
+                      max_words=10, colormap='viridis').generate_from_frequencies(top10_dict)
+
+plt.figure(figsize=(14, 8))
+plt.imshow(wordcloud, interpolation='bilinear')
+plt.axis('off')
+plt.title("Облако слов из 10 самых популярных слов")
+plt.tight_layout()
+plt.show()
