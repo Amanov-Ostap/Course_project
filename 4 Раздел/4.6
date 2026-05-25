@@ -1,0 +1,95 @@
+import json
+import os
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from pymorphy3 import MorphAnalyzer
+import numpy as np
+
+morph = MorphAnalyzer()
+
+
+def clean_text(text):
+    if not text:
+        return ""
+    text = str(text).lower()
+    text = re.sub(r'[^\w\s]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+def lemmatize_text(text):
+    if not text:
+        return ""
+    words = text.split()
+    return " ".join(morph.parse(w)[0].normal_form for w in words)
+
+
+def keep_only_russian(text):
+    words = text.split()
+    return " ".join([w for w in words if re.search(r'[а-яё]', w)])
+
+
+print("Информационный поиск по датасету PAUQ\n")
+
+# Загрузка данных
+texts = []
+original_questions = []
+
+for filename in ["pauq_train.json", "pauq_dev.json"]:
+    if os.path.exists(filename):
+        with open(filename, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        for item in data:
+            q = item.get('question')
+
+            # Если вопрос — это словарь с 'ru' и 'en'
+            if isinstance(q, dict):
+                q = q.get('ru') or q.get('en')  # берём русский, если есть
+
+            if isinstance(q, str) and q.strip():
+                cleaned = clean_text(q)
+                lemmatized = lemmatize_text(cleaned)
+                russian_text = keep_only_russian(lemmatized)
+
+                if russian_text:
+                    texts.append(russian_text)
+                    original_questions.append(q)  # сохраняем оригинальный русский вопрос
+
+print(f"Загружено {len(texts)} документов для поиска\n")
+
+# TF-IDF
+vectorizer = TfidfVectorizer(max_df=0.85, min_df=3)
+tfidf_matrix = vectorizer.fit_transform(texts)
+
+print(f"Размер словаря: {len(vectorizer.vocabulary_)}\n")
+
+def search(запрос, top_k=5):
+    cleaned = clean_text(запрос)
+    lemmatized = lemmatize_text(cleaned)
+    russian_query = keep_only_russian(lemmatized)
+
+    if not russian_query:
+        print("Запрос должен содержать русские слова.")
+        return
+
+    query_vector = vectorizer.transform([russian_query])
+    similarity_scores = cosine_similarity(query_vector, tfidf_matrix).flatten()
+
+    top_indices = np.argsort(similarity_scores)[::-1][:top_k]
+
+    print(f"Запрос: {запрос}\n")
+    print(f"{'Ранг':<4} {'Похожесть':<10} Найденный вопрос")
+
+    for rank, idx in enumerate(top_indices, 1):
+        score = similarity_scores[idx]
+        if score < 0.1:
+            break
+        print(f"{rank:<4} {score:.4f}     {original_questions[idx]}")
+
+
+print("Тест 1:")
+search("Сколько студентов обучается на факультете?", top_k=5)
+
+print("\nТест 2:")
+search("Название факультета с наибольшим количеством студентов", top_k=5)
